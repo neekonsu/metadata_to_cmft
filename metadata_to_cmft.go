@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/jlaffaye/ftp"
+	terminal "github.com/wayneashleyberry/terminal-dimensions"
 )
 
 // Read entries from one column of a csv to []string
@@ -81,6 +82,7 @@ func main() {
 	var tmpCMFT [][]string
 	var tmpWgetConf [][]string
 	var wg sync.WaitGroup
+	termWidth, _ := terminal.Width()
 	sampleNames := read(csvPath, 1)
 	marks := read(csvPath, 3)
 	tmpCMFT = append(tmpCMFT, sampleNames)
@@ -95,35 +97,22 @@ func main() {
 	fmt.Println("ftp server connected!")
 	fmt.Println("extracting BED filenames and URLs")
 
-	// export full links
-	wg.Add(1)
-	go func() {
-		for _, url := range read(csvPath, 2) {
-			path := extractPath(url)
-			for _, bedFilename := range listBedFiles(serverConn, path) {
-				tmpString = "ftp://ftp.ncbi.nlm.nih.gov/" + path[1:len(path)-1] + "/" + bedFilename
-				fmt.Printf("extracted full link >>> %s\n", tmpString)
-				fullLinks = append(fullLinks, tmpString)
-			}
+	// export full links and BED filenames
+	for _, url := range read(csvPath, 2) {
+		path := extractPath(url)
+		for _, bedFilename := range listBedFiles(serverConn, path) {
+			tmpString = "ftp://ftp.ncbi.nlm.nih.gov/" + path[1:len(path)-1] + "/" + bedFilename
+			fmt.Printf("%s\n", strings.Repeat("~", int(termWidth*3/4)))
+			fmt.Printf(" <<< extracted full link >>> %s\n", tmpString)
+			fmt.Printf(" <<< extracted file name >>> %s\n", bedFilename[:len(bedFilename)-3])
+			fullLinks = append(fullLinks, tmpString)
+			bedNames = append(bedNames, bedFilename[:len(bedFilename)-3])
 		}
-		tmpWgetConf = append(tmpWgetConf, fullLinks)
-		wg.Done()
-	}()
-	wg.Add(1)
-	// export plain BED files
-	go func() {
-		for _, url := range read(csvPath, 2) {
-			path := extractPath(url)
-			for _, bedFilename := range listBedFiles(serverConn, path) {
-				tmpString = bedFilename[:len(bedFilename)-3]
-				fmt.Printf("extracted file name >>> %s\n", tmpString)
-				bedNames = append(bedNames, tmpString)
-			}
-		}
-		tmpCMFT = append(tmpCMFT, bedNames)
-		wg.Done()
-	}()
-	wg.Wait()
+	}
+	tmpWgetConf = append(tmpWgetConf, fullLinks)
+	tmpCMFT = append(tmpCMFT, bedNames)
+
+	fmt.Printf("%s\n", strings.Repeat("~", int(termWidth*3/4)))
 	fmt.Println("Done extracting BED filenames and URLs, disconnecting from ftp server")
 
 	err = serverConn.Quit()
