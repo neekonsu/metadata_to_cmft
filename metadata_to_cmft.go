@@ -132,6 +132,7 @@ func main() {
 	fmt.Println("ftp server connected!")
 	fmt.Println("extracting BED filenames and URLs")
 
+	// TODO: make link extraction into goroutine to speed up process
 	// export full links
 	for _, url := range readUrls(csvPath) {
 		path := extractPath(url)
