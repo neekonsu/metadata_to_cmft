@@ -214,8 +214,10 @@ func main() {
 	defer file2.Close()
 
 	writer1 := csv.NewWriter(file1)
+	writer1.Comma = '\t'
 	defer writer1.Flush()
 	writer2 := csv.NewWriter(file2)
+	writer2.Comma = '\t'
 	defer writer2.Flush()
 
 	tmpCMFT = transpose(tmpCMFT)
