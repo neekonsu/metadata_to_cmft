@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/jlaffaye/ftp"
+	"github.com/kr/pretty"
 	terminal "github.com/wayneashleyberry/terminal-dimensions"
 )
 
@@ -101,7 +102,7 @@ func isolates(rawCMFT [][]string) []isolate {
 		}
 		output = append(output, matrixToIsolate(tmpIsolate))
 	}
-
+	pretty.Println(output)
 	return output
 }
 
@@ -116,27 +117,42 @@ func (e *isolate) linkControlAssays() {
 	// }
 
 	// init vars
+	var tmpTable [][]string
 	var controlFilename string
+	var matrixLenX int
 	var matrixLenY int
 	var controlFilenameIndex int
 
 	// assign values to matrix dimensions
+	matrixLenX = len(e.table[0])
 	matrixLenY = len(e.table)
+
+	tmpTable = make([][]string, matrixLenY)
+	for i := range tmpTable {
+		tmpTable[i] = make([]string, matrixLenX+1)
+	}
+
+	for i := range tmpTable {
+		for j := 0; j < (len(tmpTable[i]) - 1); j++ {
+			tmpTable[i][j] = e.table[i][j]
+		}
+	}
 
 	// search for control filename and assign to variable
 	for i := 0; i < matrixLenY; i++ {
-		if e.table[i][1] == "ChIP-seq Input" {
+		if e.table[i][1] == "ChIP-Seq input" {
 			controlFilename = e.table[i][2]
 			controlFilenameIndex = i
 		}
 	}
 
 	// remove row containing Control assay
-	e.table = append(e.table[:controlFilenameIndex], e.table[controlFilenameIndex+1:]...)
+	if controlFilenameIndex != 0 {
+		e.table = append(e.table[:controlFilenameIndex], e.table[controlFilenameIndex+1:]...)
+	}
 
-	// append control assay filename to all rows
-	for i := 0; i < matrixLenY; i++ {
-		e.table[i] = append(e.table[i], controlFilename)
+	for i := range tmpTable {
+		tmpTable[i][len(tmpTable[0])-1] = controlFilename
 	}
 
 	// example formatted isolate:
@@ -145,6 +161,7 @@ func (e *isolate) linkControlAssays() {
 	// 		{SAMN00012131,	H3K4me3,	GSM537697_BI.Adult_Liver.H3K4me3.3.bed,	GSM537698_BI.Adult_Liver.input.3.bed},
 	// 		{SAMN00012131,	H3K27me3,	GSM537698_BI.Adult_Liver.H3K27me3.3.bed,	GSM537698_BI.Adult_Liver.input.3.bed}
 	// }
+	fmt.Println(e.table)
 }
 
 func (e isolate) toMatrix() [][]string {
@@ -221,6 +238,8 @@ func main() {
 	defer writer2.Flush()
 
 	tmpCMFT = transpose(tmpCMFT)
+	tmpCMFT = formatCMFT(tmpCMFT)
+
 	tmpWgetConf = transpose(tmpWgetConf)
 
 	for _, value := range tmpCMFT {
