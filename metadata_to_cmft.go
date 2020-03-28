@@ -7,15 +7,29 @@ import (
 	"log"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/jlaffaye/ftp"
 	terminal "github.com/wayneashleyberry/terminal-dimensions"
 )
 
-// same as [][]string, meant to represent tables containing only one tissue sample
+// Contains a 2d slice [][]string of cell mark file table data for one sample, hence the name isolate(d sample)
 type isolate struct {
 	table [][]string
+}
+
+// Format individual isolate with control assay filenames in fourth column and return formatted isolate
+func (I *isolate) Format() {
+
+}
+
+// Iterate temporary (unformatted) cell mark file table 2d slice [][]string and return slice of isolates []isolate
+func makeIsolates(unformattedCMFT [][]string) {
+
+}
+
+// Take temporary cell mark file table, convert to []isolate, iterate isolates in []isolate and format each one, iterate []isolate and append each table to a new finished cell mark file table
+func formatCMFT(unformattedCMFT [][]string) {
+
 }
 
 // Read entries from one column of a csv to []string
@@ -35,6 +49,23 @@ func read(path string, index int8) []string {
 	return outTable
 }
 
+func readAll(path string) [][]string {
+	csvfile, _ := os.Open(path)
+	r := csv.NewReader(csvfile)
+	r.Read()
+	var outTable [][]string
+	for {
+		record, err := r.Read()
+		if err == io.EOF {
+			break
+		}
+		checkError("Unable to read line from csv: ", err)
+		outTable = append(outTable, record)
+	}
+	return outTable
+}
+
+// TODO: Generalize to any base domain/ftp server
 // Isolate filepath from full GEO url
 func extractPath(url string) string {
 	// example url: ftp://ftp.ncbi.nlm.nih.gov/geo/samples/GSM537nnn/GSM537697/suppl
@@ -78,89 +109,6 @@ func transpose(slice [][]string) [][]string {
 	return result
 }
 
-func matrixToIsolate(matrix [][]string) isolate {
-	var i isolate
-	i.table = matrix
-	return i
-}
-
-// Convert raw cmft to []isolate
-func isolates(rawCMFT [][]string) []isolate {
-	// TODO
-	var output []isolate
-
-	for _, i := range rawCMFT {
-		var tmpIsolate [][]string
-		tmpSample := i[0]
-		for ii := 0; ii < len(rawCMFT); ii++ {
-			if rawCMFT[ii][0] == tmpSample {
-				tmpIsolate = append(tmpIsolate, rawCMFT[ii])
-				rawCMFT = append(rawCMFT[:ii], rawCMFT[ii+1:]...)
-				ii--
-			}
-		}
-		output = append(output, matrixToIsolate(tmpIsolate))
-	}
-
-	return output
-}
-
-// Takes individual raw isolate and returns properly formatted isolate
-func (e *isolate) linkControlAssays() {
-	// example raw isolate:
-	// {
-	// 		{SAMN00012131,	H3K9me3,	GSM537695_BI.Adult_Liver.H3K9me3.3.bed},
-	// 		{SAMN00012131,	H3K4me3,	GSM537697_BI.Adult_Liver.H3K4me3.3.bed},
-	// 		{SAMN00012131,	H3K27me3,	GSM537698_BI.Adult_Liver.H3K27me3.3.bed},
-	// 		{SAMN00012131,	CHIp-seq Input,	GSM537698_BI.Adult_Liver.input.3.bed}
-	// }
-
-	// init vars
-	var controlFilename string
-	var matrixLenY int
-	var controlFilenameIndex int
-
-	// assign values to matrix dimensions
-	matrixLenY = len(e.table)
-
-	// search for control filename and assign to variable
-	for i := 0; i < matrixLenY; i++ {
-		if e.table[i][1] == "ChIP-seq Input" {
-			controlFilename = e.table[i][2]
-			controlFilenameIndex = i
-		}
-	}
-
-	// remove row containing Control assay
-	e.table = append(e.table[:controlFilenameIndex], e.table[controlFilenameIndex+1:]...)
-
-	// append control assay filename to all rows
-	for i := 0; i < matrixLenY; i++ {
-		e.table[i] = append(e.table[i], controlFilename)
-	}
-
-	// example formatted isolate:
-	// {
-	// 		{SAMN00012131,	H3K9me3,	GSM537695_BI.Adult_Liver.H3K9me3.3.bed,	GSM537698_BI.Adult_Liver.input.3.bed},
-	// 		{SAMN00012131,	H3K4me3,	GSM537697_BI.Adult_Liver.H3K4me3.3.bed,	GSM537698_BI.Adult_Liver.input.3.bed},
-	// 		{SAMN00012131,	H3K27me3,	GSM537698_BI.Adult_Liver.H3K27me3.3.bed,	GSM537698_BI.Adult_Liver.input.3.bed}
-	// }
-}
-
-func (e isolate) toMatrix() [][]string {
-	return e.table
-}
-
-func formatCMFT(rawCMFT [][]string) [][]string {
-	var output [][]string
-	rawIsolates := isolates(rawCMFT)
-	for i := 0; i < len(rawIsolates); i++ {
-		rawIsolates[i].linkControlAssays()
-		output = append(output, rawIsolates[i].toMatrix()...)
-	}
-	return output
-}
-
 func main() {
 	var csvPath string = os.Args[1]
 	var tmpString string
@@ -175,7 +123,7 @@ func main() {
 	tmpCMFT = append(tmpCMFT, sampleNames)
 	tmpCMFT = append(tmpCMFT, marks)
 
-	serverConn, err := ftp.Dial("ftp.ncbi.nlm.nih.gov:21", ftp.DialWithTimeout(5*time.Second))
+	serverConn, err := ftp.Dial("ftp.ncbi.nlm.nih.gov:21")
 	checkError("Unable to dial ftp server: ", err)
 
 	err = serverConn.Login("anonymous", "anonymous")
@@ -206,9 +154,10 @@ func main() {
 	checkError("Unable to disconnect from server: ", err)
 	fmt.Println("Disconnected from server, writing files to current directory")
 
-	file1, err := os.Create("cmft.csv")
-	checkError("error while exporting new cmft.csv: ", err)
+	file1, err := os.Create("cmft.tsv")
+	checkError("error while exporting new cmft.tsv: ", err)
 	defer file1.Close()
+
 	file2, err := os.Create("wget.conf")
 	checkError("error while exporting new wget.csv: ", err)
 	defer file2.Close()
@@ -216,6 +165,7 @@ func main() {
 	writer1 := csv.NewWriter(file1)
 	writer1.Comma = '\t'
 	defer writer1.Flush()
+
 	writer2 := csv.NewWriter(file2)
 	writer2.Comma = '\t'
 	defer writer2.Flush()
