@@ -7,12 +7,16 @@ import (
 	"log"
 	"os"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/jlaffaye/ftp"
 	terminal "github.com/wayneashleyberry/terminal-dimensions"
 )
+
+// same as [][]string, meant to represent tables containing only one tissue sample
+type isolate struct {
+	table [][]string
+}
 
 // Read entries from one column of a csv to []string
 func read(path string, index int8) []string {
@@ -26,7 +30,7 @@ func read(path string, index int8) []string {
 			break
 		}
 		checkError("Unable to read line from csv: ", err)
-		outTable = append(outTable, record[2])
+		outTable = append(outTable, record[index])
 	}
 	return outTable
 }
@@ -74,6 +78,89 @@ func transpose(slice [][]string) [][]string {
 	return result
 }
 
+func matrixToIsolate(matrix [][]string) isolate {
+	var i isolate
+	i.table = matrix
+	return i
+}
+
+// Convert raw cmft to []isolate
+func isolates(rawCMFT [][]string) []isolate {
+	// TODO
+	var output []isolate
+
+	for _, i := range rawCMFT {
+		var tmpIsolate [][]string
+		tmpSample := i[0]
+		for ii := 0; ii < len(rawCMFT); ii++ {
+			if rawCMFT[ii][0] == tmpSample {
+				tmpIsolate = append(tmpIsolate, rawCMFT[ii])
+				rawCMFT = append(rawCMFT[:ii], rawCMFT[ii+1:]...)
+				ii--
+			}
+		}
+		output = append(output, matrixToIsolate(tmpIsolate))
+	}
+
+	return output
+}
+
+// Takes individual raw isolate and returns properly formatted isolate
+func (e *isolate) linkControlAssays() {
+	// example raw isolate:
+	// {
+	// 		{SAMN00012131,	H3K9me3,	GSM537695_BI.Adult_Liver.H3K9me3.3.bed},
+	// 		{SAMN00012131,	H3K4me3,	GSM537697_BI.Adult_Liver.H3K4me3.3.bed},
+	// 		{SAMN00012131,	H3K27me3,	GSM537698_BI.Adult_Liver.H3K27me3.3.bed},
+	// 		{SAMN00012131,	CHIp-seq Input,	GSM537698_BI.Adult_Liver.input.3.bed}
+	// }
+
+	// init vars
+	var controlFilename string
+	var matrixLenY int
+	var controlFilenameIndex int
+
+	// assign values to matrix dimensions
+	matrixLenY = len(e.table)
+
+	// search for control filename and assign to variable
+	for i := 0; i < matrixLenY; i++ {
+		if e.table[i][1] == "ChIP-seq Input" {
+			controlFilename = e.table[i][2]
+			controlFilenameIndex = i
+		}
+	}
+
+	// remove row containing Control assay
+	e.table = append(e.table[:controlFilenameIndex], e.table[controlFilenameIndex+1:]...)
+
+	// append control assay filename to all rows
+	for i := 0; i < matrixLenY; i++ {
+		e.table[i] = append(e.table[i], controlFilename)
+	}
+
+	// example formatted isolate:
+	// {
+	// 		{SAMN00012131,	H3K9me3,	GSM537695_BI.Adult_Liver.H3K9me3.3.bed,	GSM537698_BI.Adult_Liver.input.3.bed},
+	// 		{SAMN00012131,	H3K4me3,	GSM537697_BI.Adult_Liver.H3K4me3.3.bed,	GSM537698_BI.Adult_Liver.input.3.bed},
+	// 		{SAMN00012131,	H3K27me3,	GSM537698_BI.Adult_Liver.H3K27me3.3.bed,	GSM537698_BI.Adult_Liver.input.3.bed}
+	// }
+}
+
+func (e isolate) toMatrix() [][]string {
+	return e.table
+}
+
+func formatCMFT(rawCMFT [][]string) [][]string {
+	var output [][]string
+	rawIsolates := isolates(rawCMFT)
+	for i := 0; i < len(rawIsolates); i++ {
+		rawIsolates[i].linkControlAssays()
+		output = append(output, rawIsolates[i].toMatrix()...)
+	}
+	return output
+}
+
 func main() {
 	var csvPath string = os.Args[1]
 	var tmpString string
@@ -81,7 +168,7 @@ func main() {
 	var bedNames []string
 	var tmpCMFT [][]string
 	var tmpWgetConf [][]string
-	var wg sync.WaitGroup
+
 	termWidth, _ := terminal.Width()
 	sampleNames := read(csvPath, 1)
 	marks := read(csvPath, 3)
@@ -117,41 +204,32 @@ func main() {
 
 	err = serverConn.Quit()
 	checkError("Unable to disconnect from server: ", err)
-
 	fmt.Println("Disconnected from server, writing files to current directory")
 
-	file1, err := os.Create("cmft.tsv")
+	file1, err := os.Create("cmft.csv")
 	checkError("error while exporting new cmft.csv: ", err)
 	defer file1.Close()
+	file2, err := os.Create("wget.conf")
+	checkError("error while exporting new wget.csv: ", err)
+	defer file2.Close()
 
 	writer1 := csv.NewWriter(file1)
 	defer writer1.Flush()
-
-	file2, err := os.Create("wget.conf")
-	checkError("error while exporting new cmft.csv: ", err)
-	defer file2.Close()
-
 	writer2 := csv.NewWriter(file2)
 	defer writer2.Flush()
 
 	tmpCMFT = transpose(tmpCMFT)
 	tmpWgetConf = transpose(tmpWgetConf)
-	wg.Add(1)
-	go func() {
-		for _, value := range tmpCMFT {
-			err := writer1.Write(value)
-			checkError("Cannot write to file: ", err)
-		}
-		wg.Done()
-	}()
-	wg.Add(1)
-	go func() {
-		for _, value := range tmpWgetConf {
-			err := writer2.Write(value)
-			checkError("Cannot write to file: ", err)
-		}
-		wg.Done()
-	}()
-	wg.Wait()
+
+	for _, value := range tmpCMFT {
+		err := writer1.Write(value)
+		checkError("Cannot write to file: ", err)
+	}
+
+	for _, value := range tmpWgetConf {
+		err := writer2.Write(value)
+		checkError("Cannot write to file: ", err)
+	}
+
 	fmt.Println("All Done!")
 }
