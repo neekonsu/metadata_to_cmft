@@ -40,8 +40,9 @@ func formatCMFT(input [][]string) [][]string {
 }
 
 // Take []string and append as n+1st column of 2d slice [][]string
-func addColumn(newColumn []string) [][]string {
-	var output [][]string
+func addColumn(input [][]string, newColumn []string) [][]string {
+	var output [][]string = input
+
 	return output
 }
 
@@ -66,6 +67,7 @@ func read(path string, index int8) []string {
 func readAll(path string) [][]string {
 	csvfile, _ := os.Open(path)
 	r := csv.NewReader(csvfile)
+	r.Comma = '\t' // TODO: remove after debugging or else this will expect a tsv file
 	r.Read()
 	var output [][]string
 	for {
@@ -75,8 +77,14 @@ func readAll(path string) [][]string {
 			break
 		}
 		checkError("Unable to read line from csv: ", err)
+		/* TODO: revert afer debugging
 		tmpRow = append(tmpRow, record[1])
 		tmpRow = append(tmpRow, record[3])
+		*/
+		tmpRow = append(tmpRow, record[0])
+		tmpRow = append(tmpRow, record[1])
+		tmpRow = append(tmpRow, record[2])
+
 		output = append(output, tmpRow)
 	}
 	return output
