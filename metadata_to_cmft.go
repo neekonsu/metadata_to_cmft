@@ -8,11 +8,6 @@ import (
 	"os"
 	"strings"
 
-<<<<<<< HEAD
-	"github.com/jlaffaye/ftp"
-	"github.com/kr/pretty"
-=======
->>>>>>> full_formatting
 	terminal "github.com/wayneashleyberry/terminal-dimensions"
 
 	"github.com/jlaffaye/ftp"
@@ -176,108 +171,6 @@ func transpose(slice [][]string) [][]string {
 	return result
 }
 
-<<<<<<< HEAD
-func matrixToIsolate(matrix [][]string) isolate {
-	var i isolate
-	i.table = matrix
-	return i
-}
-
-// Convert raw cmft to []isolate
-func isolates(rawCMFT [][]string) []isolate {
-	// TODO
-	var output []isolate
-
-	for _, i := range rawCMFT {
-		var tmpIsolate [][]string
-		tmpSample := i[0]
-		for ii := 0; ii < len(rawCMFT); ii++ {
-			if rawCMFT[ii][0] == tmpSample {
-				tmpIsolate = append(tmpIsolate, rawCMFT[ii])
-				rawCMFT = append(rawCMFT[:ii], rawCMFT[ii+1:]...)
-				ii--
-			}
-		}
-		output = append(output, matrixToIsolate(tmpIsolate))
-	}
-	pretty.Println(output)
-	return output
-}
-
-// Takes individual raw isolate and returns properly formatted isolate
-func (e *isolate) linkControlAssays() {
-	// example raw isolate:
-	// {
-	// 		{SAMN00012131,	H3K9me3,	GSM537695_BI.Adult_Liver.H3K9me3.3.bed},
-	// 		{SAMN00012131,	H3K4me3,	GSM537697_BI.Adult_Liver.H3K4me3.3.bed},
-	// 		{SAMN00012131,	H3K27me3,	GSM537698_BI.Adult_Liver.H3K27me3.3.bed},
-	// 		{SAMN00012131,	CHIp-seq Input,	GSM537698_BI.Adult_Liver.input.3.bed}
-	// }
-
-	// init vars
-	var tmpTable [][]string
-	var controlFilename string
-	var matrixLenX int
-	var matrixLenY int
-	var controlFilenameIndex int
-
-	// assign values to matrix dimensions
-	matrixLenX = len(e.table[0])
-	matrixLenY = len(e.table)
-
-	tmpTable = make([][]string, matrixLenY)
-	for i := range tmpTable {
-		tmpTable[i] = make([]string, matrixLenX+1)
-	}
-
-	for i := range tmpTable {
-		for j := 0; j < (len(tmpTable[i]) - 1); j++ {
-			tmpTable[i][j] = e.table[i][j]
-		}
-	}
-
-	// search for control filename and assign to variable
-	for i := 0; i < matrixLenY; i++ {
-		if e.table[i][1] == "ChIP-Seq input" {
-			controlFilename = e.table[i][2]
-			controlFilenameIndex = i
-		}
-	}
-
-	// remove row containing Control assay
-	if controlFilenameIndex != 0 {
-		e.table = append(e.table[:controlFilenameIndex], e.table[controlFilenameIndex+1:]...)
-	}
-
-	for i := range tmpTable {
-		tmpTable[i][len(tmpTable[0])-1] = controlFilename
-	}
-
-	// example formatted isolate:
-	// {
-	// 		{SAMN00012131,	H3K9me3,	GSM537695_BI.Adult_Liver.H3K9me3.3.bed,	GSM537698_BI.Adult_Liver.input.3.bed},
-	// 		{SAMN00012131,	H3K4me3,	GSM537697_BI.Adult_Liver.H3K4me3.3.bed,	GSM537698_BI.Adult_Liver.input.3.bed},
-	// 		{SAMN00012131,	H3K27me3,	GSM537698_BI.Adult_Liver.H3K27me3.3.bed,	GSM537698_BI.Adult_Liver.input.3.bed}
-	// }
-	fmt.Println(e.table)
-}
-
-func (e isolate) toMatrix() [][]string {
-	return e.table
-}
-
-func formatCMFT(rawCMFT [][]string) [][]string {
-	var output [][]string
-	rawIsolates := isolates(rawCMFT)
-	for i := 0; i < len(rawIsolates); i++ {
-		rawIsolates[i].linkControlAssays()
-		output = append(output, rawIsolates[i].toMatrix()...)
-	}
-	return output
-}
-
-=======
->>>>>>> full_formatting
 func main() {
 	// declare variables
 	var csvPath string = os.Args[1]
@@ -336,12 +229,6 @@ func main() {
 	writer2.Comma = '\t'
 	defer writer2.Flush()
 
-<<<<<<< HEAD
-	tmpCMFT = transpose(tmpCMFT)
-	tmpCMFT = formatCMFT(tmpCMFT)
-
-	tmpWgetConf = transpose(tmpWgetConf)
-=======
 	// append []string of full ftp addresses to wgetConf
 	// wgetConf is [][]string so that it can be transposed
 	// by transposing wgetConf, we ultimately write each link as one row in wget.conf
@@ -372,7 +259,6 @@ func main() {
 			string(len(os.Args)) +
 			" arguments, expected at least 1 argument (PATH_TO_METADATA and optional PURGE OPTION)")
 	}
->>>>>>> full_formatting
 
 	// write the contents of cmft and wgetConf to their respective files row by row
 	for _, value := range cmft {
