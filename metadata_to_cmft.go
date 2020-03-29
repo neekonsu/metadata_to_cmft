@@ -245,6 +245,7 @@ func main() {
 	cmft = append(cmft, sampleNames)
 	cmft = append(cmft, marks)
 	cmft = append(cmft, bedNames)
+	cmft = transpose(cmft)
 
 	// format cmft depending on the number of options passed
 	// this is essentially pseudo-overloading, since I was lazy to
