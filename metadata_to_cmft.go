@@ -1,4 +1,4 @@
-package metadatatocmft
+package main
 
 import (
 	"encoding/csv"
@@ -17,9 +17,8 @@ import (
 
 // Isolate represents a 2d slice [][]string of cell mark file table data for one sample, hence the name Isolate(d sample)
 type Isolate struct {
-	table       [][]string
-	controlName string
-	sampleName  string
+	table                   [][]string
+	controlName, sampleName string
 }
 
 // Format individual Isolate with control assay filenames in fourth column and return formatted Isolate
