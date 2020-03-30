@@ -2,10 +2,12 @@ package metadatatocmft
 
 import (
 	"encoding/csv"
+	"flag"
 	"fmt"
 	"io"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 
 	terminal "github.com/wayneashleyberry/terminal-dimensions"
@@ -64,14 +66,14 @@ func makeIsolates(input [][]string) []Isolate {
 }
 
 // Take temporary cell mark file table, convert to []Isolate, iterate Isolates in []Isolate and format each one, iterate []Isolate and append each table to a new finished cell mark file table
-func formatCMFT(input [][]string, option string) [][]string {
+func formatCMFT(input [][]string, purge bool) [][]string {
 	var output [][]string
 	isolates := makeIsolates(input)
 	for _, isolate := range isolates {
 		isolate.Format()
 		output = append(output, isolate.table[:]...)
 	}
-	if option == "purge" {
+	if purge {
 		for i := 0; i < len(output); i++ {
 			row := output[i]
 			if row[3] == "" {
@@ -173,7 +175,10 @@ func transpose(slice [][]string) [][]string {
 
 func main() {
 	// declare variables
-	var csvPath string = os.Args[1]
+	var inputPath string = *flag.String("i", "./metadata.csv", "Path to metadata csv file, default is \"./metadata.csv\"")
+	var cmftOutputPath string = *flag.String("o", "./cmft.tsv", "Path to cmft output, default \"./cmft.tsv\"")
+	var wgetOutputPath string = *flag.String("wgetPath", filepath.Dir(cmftOutputPath)+"/wget.conf", "Path to wget dependency file, default /path/to/cmft/wget.conf")
+	var purge bool = *flag.Bool("purge", false, "T/F purge samples with missing control sequences, default \"false\"")
 	var tmpString string
 	var fullLinks []string
 	var bedNames []string
@@ -182,8 +187,8 @@ func main() {
 
 	// initialize variables that are able to be assigned values at this point
 	termWidth, _ := terminal.Width()
-	sampleNames := read(csvPath, 1)
-	marks := read(csvPath, 3)
+	sampleNames := read(inputPath, 1)
+	marks := read(inputPath, 3)
 
 	// initialize connection to ftp server (serverConn)
 	serverConn, err := ftp.Dial("ftp.ncbi.nlm.nih.gov:21")
@@ -194,7 +199,7 @@ func main() {
 	fmt.Println("extracting BED filenames and URLs")
 
 	// export full links and BED filenames
-	for _, url := range read(csvPath, 2) {
+	for _, url := range read(inputPath, 2) {
 		path := extractPath(url)
 		for _, bedFilename := range listBedFiles(serverConn, path) {
 			tmpString = "ftp://ftp.ncbi.nlm.nih.gov/" + path[1:len(path)-1] + "/" + bedFilename
@@ -214,10 +219,10 @@ func main() {
 	fmt.Println("Disconnected from server, writing files to current directory")
 
 	// create placeholder files for cmft.tsv and wget.conf
-	file1, err := os.Create("cmft.tsv")
+	file1, err := os.Create(cmftOutputPath)
 	checkError("error while exporting new cmft.tsv: ", err)
 	defer file1.Close()
-	file2, err := os.Create("wget.conf")
+	file2, err := os.Create(wgetOutputPath)
 	checkError("error while exporting new wget.csv: ", err)
 	defer file2.Close()
 
@@ -247,18 +252,8 @@ func main() {
 	cmft = append(cmft, bedNames)
 	cmft = transpose(cmft)
 
-	// format cmft depending on the number of options passed
-	// this is essentially pseudo-overloading, since I was lazy to
-	// google how to program argument overloading in golang
-	if len(os.Args) == 3 {
-		cmft = formatCMFT(cmft, os.Args[2])
-	} else if len(os.Args) == 2 {
-		cmft = formatCMFT(cmft, "")
-	} else {
-		log.Fatal("Too few arguments supplied: Received " +
-			string(len(os.Args)) +
-			" arguments, expected at least 1 argument (PATH_TO_METADATA and optional PURGE OPTION)")
-	}
+	// format cmft with flag options
+	cmft = formatCMFT(cmft, purge)
 
 	// write the contents of cmft and wgetConf to their respective files row by row
 	for _, value := range cmft {
