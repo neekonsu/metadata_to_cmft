@@ -174,9 +174,9 @@ func transpose(slice [][]string) [][]string {
 
 func main() {
 	// declare variables
-	var inputPath string = *flag.String("i", "./metadata.csv", "Path to metadata csv file, default is \"./metadata.csv\"")
-	var cmftOutputPath string = *flag.String("o", "./cmft.tsv", "Path to cmft output, default \"./cmft.tsv\"")
-	var wgetOutputPath string = *flag.String("wgetPath", filepath.Dir(cmftOutputPath)+"/wget.conf", "Path to wget dependency file, default /path/to/cmft/wget.conf")
+	var inputPath string = *flag.String("i", "./metadata.csv", "Path to metadata csv file")
+	var cmftOutputPath string = *flag.String("o", "./cmft.tsv", "Path to cmft output")
+	var wgetOutputPath string = *flag.String("wgetPath", filepath.Dir(cmftOutputPath)+"/wget.conf", "Path to wget dependency file, default is path of cmft")
 	var purge bool = *flag.Bool("purge", false, "T/F purge samples with missing control sequences, default \"false\"")
 	var tmpString string
 	var fullLinks []string
